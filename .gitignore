@@ -8,6 +8,7 @@ __pycache__/
 
 # md files
 *.md
+!README.md
 
 # Distribution / packaging
 .Python

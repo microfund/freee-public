@@ -1,3 +1,4 @@
-# freee-public
-freee-public-descripton
+# このリポジトリについて
+* freee-apiを利用するpythonプログラムです。
+
 
