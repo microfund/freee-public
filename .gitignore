@@ -10,6 +10,9 @@ __pycache__/
 *.md
 !README.md
 
+# json
+freee_tokens.json
+
 # Distribution / packaging
 .Python
 build/
