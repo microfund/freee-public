@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-freee請求書API - 請求書確認スクリプト
-エンドポイント: https://api.freee.co.jp/iv/invoices（freee請求書専用API）
+freee請求書API - 見積書確認スクリプト
+エンドポイント: https://api.freee.co.jp/iv/quotations（freee請求書専用API）
 """
 
 import os
@@ -33,11 +33,11 @@ INVOICE_API_BASE = '/iv'  # freee請求書API
 
 # トークンファイルのパス（スクリプトと同じディレクトリ）
 SCRIPT_DIR = Path(__file__).resolve().parent
-TOKEN_FILE = SCRIPT_DIR / 'freee_tokens_invoice.json'
+TOKEN_FILE = SCRIPT_DIR / 'freee_tokens_quotation.json'
 
 
-class FreeeInvoiceAPI:
-    """freee請求書API クライアント（freee請求書専用）"""
+class FreeeQuotationAPI:
+    """freee見積書API クライアント（freee請求書専用）"""
     
     def __init__(self):
         self.client_id = CLIENT_ID
@@ -111,7 +111,6 @@ class FreeeInvoiceAPI:
         }
         
         try:
-            # freee会計APIで事業所一覧を取得してトークンを検証
             response = requests.get(
                 f'{API_BASE_URL}/api/1/companies',
                 headers=headers,
@@ -254,7 +253,7 @@ class FreeeInvoiceAPI:
                 for i, company in enumerate(companies, 1):
                     print(f"   {i}. {company.get('display_name')} (ID: {company.get('id')})")
                 
-                print("\n💡 請求書が登録されている事業所を選択してください")
+                print("\n💡 見積書が登録されている事業所を選択してください")
                 while True:
                     try:
                         choice = input(f"選択してください (1-{len(companies)}): ").strip()
@@ -285,13 +284,7 @@ class FreeeInvoiceAPI:
             print("❌ company_idを取得できませんでした")
     
     def _api_request(self, method, endpoint, use_invoice_api=False, **kwargs):
-        """APIリクエストを実行
-        
-        Args:
-            method: HTTPメソッド
-            endpoint: エンドポイントパス
-            use_invoice_api: True の場合、freee請求書API（/iv）を使用
-        """
+        """APIリクエストを実行"""
         headers = {
             'Authorization': f'Bearer {self.access_token}',
             'Content-Type': 'application/json'
@@ -301,7 +294,6 @@ class FreeeInvoiceAPI:
             headers.update(kwargs['headers'])
             del kwargs['headers']
         
-        # freee請求書APIを使用する場合
         if use_invoice_api:
             url = f'{API_BASE_URL}{INVOICE_API_BASE}{endpoint}'
         else:
@@ -360,22 +352,21 @@ class FreeeInvoiceAPI:
             print(f"   レスポンス: {response.text[:500]}")
             return []
     
-    def get_invoices(self, limit=100, start_date=None, end_date=None, 
-                     sending_status=None, payment_status=None):
-        """請求書一覧を取得（freee請求書API）
+    def get_quotations(self, limit=100, start_date=None, end_date=None, 
+                       sending_status=None):
+        """見積書一覧を取得（freee請求書API）
         
         Args:
             limit: 取得件数（最大100）
-            start_date: 請求日の開始日（YYYY-MM-DD）
-            end_date: 請求日の終了日（YYYY-MM-DD）
+            start_date: 見積日の開始日（YYYY-MM-DD）
+            end_date: 見積日の終了日（YYYY-MM-DD）
             sending_status: 送付ステータス（sent/unsent）
-            payment_status: 入金ステータス（settled/unsettled）
         """
         if not self.company_id:
             print("❌ company_idが設定されていません")
             return []
         
-        print(f"\n📄 請求書一覧を取得中（freee請求書API）...")
+        print(f"\n📄 見積書一覧を取得中（freee請求書API）...")
         print(f"   Company ID: {self.company_id}")
         print(f"   取得件数: {limit}")
         if start_date:
@@ -384,26 +375,21 @@ class FreeeInvoiceAPI:
             print(f"   終了日: {end_date}")
         if sending_status:
             print(f"   送付ステータス: {sending_status}")
-        if payment_status:
-            print(f"   入金ステータス: {payment_status}")
         
         params = {
             'company_id': self.company_id,
-            'limit': min(limit, 100)  # 最大100件
+            'limit': min(limit, 100)
         }
         
-        # freee請求書APIのパラメータ名に合わせる
         if start_date:
-            params['start_billing_date'] = start_date
+            params['start_quotation_date'] = start_date
         if end_date:
-            params['end_billing_date'] = end_date
+            params['end_quotation_date'] = end_date
         if sending_status:
             params['sending_status'] = sending_status
-        if payment_status:
-            params['payment_status'] = payment_status
         
-        # freee請求書API（/iv/invoices）を使用
-        response = self._api_request('GET', '/invoices', params=params, use_invoice_api=True)
+        # freee請求書API（/iv/quotations）を使用
+        response = self._api_request('GET', '/quotations', params=params, use_invoice_api=True)
         
         if response.status_code == 200:
             try:
@@ -414,24 +400,24 @@ class FreeeInvoiceAPI:
                     return []
                 
                 data = response.json()
-                invoices = data.get('invoices', [])
-                print(f"✓ {len(invoices)}件の請求書を取得しました")
+                quotations = data.get('quotations', [])
+                print(f"✓ {len(quotations)}件の見積書を取得しました")
                 
-                if invoices:
-                    print("\n取得した請求書:")
-                    for i, inv in enumerate(invoices, 1):
-                        partner_name = inv.get('partner_name') or inv.get('partner_display_name', 'N/A')
-                        print(f"   {i}. {inv.get('invoice_number')} - "
+                if quotations:
+                    print("\n取得した見積書:")
+                    for i, q in enumerate(quotations, 1):
+                        partner_name = q.get('partner_name') or q.get('partner_display_name', 'N/A')
+                        print(f"   {i}. {q.get('quotation_number')} - "
                               f"{partner_name} - "
-                              f"¥{inv.get('total_amount', 0):,.0f}")
+                              f"¥{q.get('total_amount', 0):,.0f}")
                 
-                return invoices
+                return quotations
             except json.JSONDecodeError as e:
                 print(f"❌ JSONデコードエラー: {e}")
                 print(f"   レスポンステキスト(最初の1000文字): {response.text[:1000]}")
                 return []
         else:
-            print(f"❌ 請求書一覧取得に失敗:")
+            print(f"❌ 見積書一覧取得に失敗:")
             print(f"   ステータスコード: {response.status_code}")
             print(f"   レスポンス: {response.text[:1000]}")
             
@@ -443,37 +429,34 @@ class FreeeInvoiceAPI:
                 print("\n💡 考えられる原因:")
                 print("   - freee請求書APIへのアクセス権限がない")
                 print("   - アプリの権限設定を確認してください")
-                print("   - https://app.secure.freee.co.jp/developers/applications")
             elif response.status_code == 404:
                 print("\n💡 考えられる原因:")
                 print("   - freee請求書サービスが有効化されていない")
-                print("   - freee請求書への登録が必要です")
-                print("   - https://www.freee.co.jp/invoice/")
             
             return []
     
-    def get_invoice_detail(self, invoice_id):
-        """請求書の詳細を取得（freee請求書API）"""
+    def get_quotation_detail(self, quotation_id):
+        """見積書の詳細を取得（freee請求書API）"""
         if not self.company_id:
             print("❌ company_idが設定されていません")
             return None
         
-        print(f"\n📋 請求書詳細を取得中... (ID: {invoice_id})")
+        print(f"\n📋 見積書詳細を取得中... (ID: {quotation_id})")
         
         params = {'company_id': self.company_id}
-        response = self._api_request('GET', f'/invoices/{invoice_id}', 
+        response = self._api_request('GET', f'/quotations/{quotation_id}', 
                                      params=params, use_invoice_api=True)
         
         if response.status_code == 200:
             try:
-                invoice = response.json().get('invoice')
-                print(f"✓ 請求書詳細を取得しました: {invoice.get('invoice_number')}")
-                return invoice
+                quotation = response.json().get('quotation')
+                print(f"✓ 見積書詳細を取得しました: {quotation.get('quotation_number')}")
+                return quotation
             except json.JSONDecodeError:
                 print(f"❌ JSONデコードエラー: {response.text[:500]}")
                 return None
         else:
-            print(f"❌ 請求書詳細取得に失敗: {response.status_code}")
+            print(f"❌ 見積書詳細取得に失敗: {response.status_code}")
             print(f"   レスポンス: {response.text[:500]}")
             return None
 
@@ -487,15 +470,6 @@ def get_sending_status_text(status):
     return status_map.get(status, status or 'N/A')
 
 
-def get_payment_status_text(status):
-    """入金ステータスを日本語に変換"""
-    status_map = {
-        'settled': '入金済み',
-        'unsettled': '入金待ち'
-    }
-    return status_map.get(status, status or 'N/A')
-
-
 def get_cancel_status_text(status):
     """取消ステータスを日本語に変換"""
     status_map = {
@@ -505,116 +479,116 @@ def get_cancel_status_text(status):
     return status_map.get(status, status or 'N/A')
 
 
-def format_invoice_summary_table(invoices):
-    """請求書一覧をMarkdownテーブル形式に整形"""
-    if not invoices:
-        return "請求書がありません。"
+def format_quotation_summary_table(quotations):
+    """見積書一覧をMarkdownテーブル形式に整形"""
+    if not quotations:
+        return "見積書がありません。"
     
     lines = []
-    lines.append("| No | 請求書番号 | 取引先 | 請求日 | 支払期限 | 送付 | 入金 | 合計金額 |")
-    lines.append("|:---:|:---|:---|:---:|:---:|:---:|:---:|---:|")
+    lines.append("| No | 見積書番号 | 取引先 | 見積日 | 有効期限 | 送付 | 合計金額 |")
+    lines.append("|:---:|:---|:---|:---:|:---:|:---:|---:|")
     
-    for i, invoice in enumerate(invoices, 1):
-        invoice_number = invoice.get('invoice_number', 'N/A')
-        partner_name = invoice.get('partner_name') or invoice.get('partner_display_name', 'N/A')
-        billing_date = invoice.get('billing_date', 'N/A')
-        payment_date = invoice.get('payment_date', 'N/A')
-        sending_status = get_sending_status_text(invoice.get('sending_status'))
-        payment_status = get_payment_status_text(invoice.get('payment_status'))
-        total_amount = invoice.get('total_amount', 0)
+    for i, q in enumerate(quotations, 1):
+        quotation_number = q.get('quotation_number', 'N/A')
+        partner_name = q.get('partner_name') or q.get('partner_display_name', 'N/A')
+        quotation_date = q.get('quotation_date', 'N/A')
+        expiration_date = q.get('expiration_date') or '-'
+        sending_status = get_sending_status_text(q.get('sending_status'))
+        total_amount = q.get('total_amount', 0)
         
-        lines.append(f"| {i} | {invoice_number} | {partner_name} | {billing_date} | "
-                     f"{payment_date} | {sending_status} | {payment_status} | ¥{total_amount:,.0f} |")
+        lines.append(f"| {i} | {quotation_number} | {partner_name} | {quotation_date} | "
+                     f"{expiration_date} | {sending_status} | ¥{total_amount:,.0f} |")
     
     return "\n".join(lines)
 
 
-def format_invoice_detail(invoice):
-    """請求書詳細をMarkdown形式に整形"""
+def format_quotation_detail(quotation):
+    """見積書詳細をMarkdown形式に整形"""
     lines = []
     
-    lines.append("## 請求書詳細")
+    lines.append("## 見積書詳細")
     lines.append("")
     
     lines.append("### 基本情報")
     lines.append("")
-    lines.append(f"**請求書ID:** {invoice.get('id', 'N/A')}")
-    lines.append(f"**請求書番号:** {invoice.get('invoice_number', 'N/A')}")
-    lines.append(f"**送付ステータス:** {get_sending_status_text(invoice.get('sending_status'))}")
-    lines.append(f"**入金ステータス:** {get_payment_status_text(invoice.get('payment_status'))}")
-    lines.append(f"**取消ステータス:** {get_cancel_status_text(invoice.get('cancel_status'))}")
-    lines.append(f"**請求日:** {invoice.get('billing_date', 'N/A')}")
-    lines.append(f"**支払期限:** {invoice.get('payment_date', 'N/A')}")
-    lines.append(f"**件名:** {invoice.get('subject', 'N/A')}")
+    lines.append(f"**見積書ID:** {quotation.get('id', 'N/A')}")
+    lines.append(f"**見積書番号:** {quotation.get('quotation_number', 'N/A')}")
+    lines.append(f"**送付ステータス:** {get_sending_status_text(quotation.get('sending_status'))}")
+    lines.append(f"**取消ステータス:** {get_cancel_status_text(quotation.get('cancel_status'))}")
+    lines.append(f"**見積日:** {quotation.get('quotation_date', 'N/A')}")
+    lines.append(f"**有効期限:** {quotation.get('expiration_date') or 'N/A'}")
+    lines.append(f"**納品期限:** {quotation.get('delivery_deadline') or 'N/A'}")
+    lines.append(f"**納品場所:** {quotation.get('delivery_location') or 'N/A'}")
+    lines.append(f"**件名:** {quotation.get('subject', 'N/A')}")
     lines.append("")
     
     lines.append("### 取引先情報")
     lines.append("")
-    partner_name = invoice.get('partner_name') or invoice.get('partner_display_name', 'N/A')
+    partner_name = quotation.get('partner_name') or quotation.get('partner_display_name', 'N/A')
     lines.append(f"**取引先名:** {partner_name}")
-    lines.append(f"**取引先ID:** {invoice.get('partner_id', 'N/A')}")
-    if invoice.get('partner_code'):
-        lines.append(f"**取引先コード:** {invoice.get('partner_code')}")
+    lines.append(f"**取引先ID:** {quotation.get('partner_id', 'N/A')}")
+    if quotation.get('partner_code'):
+        lines.append(f"**取引先コード:** {quotation.get('partner_code')}")
     lines.append("")
     
     lines.append("### 金額情報")
     lines.append("")
-    lines.append(f"**小計（税別）:** ¥{invoice.get('amount_excluding_tax', 0):,.0f}")
-    lines.append(f"**消費税額:** ¥{invoice.get('amount_tax', 0):,.0f}")
-    lines.append(f"**税込金額:** ¥{invoice.get('amount_including_tax', 0):,.0f}")
-    if invoice.get('amount_withholding_tax'):
-        lines.append(f"**源泉所得税:** ¥{invoice.get('amount_withholding_tax', 0):,.0f}")
-    lines.append(f"**合計金額:** ¥{invoice.get('total_amount', 0):,.0f}")
-    if invoice.get('amount_brought_forward'):
-        lines.append(f"**繰越金額:** ¥{invoice.get('amount_brought_forward', 0):,.0f}")
+    lines.append(f"**小計（税別）:** ¥{quotation.get('amount_excluding_tax', 0):,.0f}")
+    lines.append(f"**消費税額:** ¥{quotation.get('amount_tax', 0):,.0f}")
+    lines.append(f"**税込金額:** ¥{quotation.get('amount_including_tax', 0):,.0f}")
+    if quotation.get('amount_withholding_tax'):
+        lines.append(f"**源泉所得税:** ¥{quotation.get('amount_withholding_tax', 0):,.0f}")
+    lines.append(f"**合計金額:** ¥{quotation.get('total_amount', 0):,.0f}")
     lines.append("")
     
     # 税率別内訳
-    if invoice.get('amount_including_tax_10') is not None:
+    if quotation.get('amount_including_tax_10') is not None:
         lines.append("### 税率別内訳")
         lines.append("")
         lines.append("| 税率 | 税抜 | 消費税 | 税込 |")
         lines.append("|:---:|---:|---:|---:|")
         
-        if invoice.get('amount_excluding_tax_10', 0) > 0:
-            lines.append(f"| 10% | ¥{invoice.get('amount_excluding_tax_10', 0):,.0f} | "
-                        f"¥{invoice.get('amount_tax_10', 0):,.0f} | "
-                        f"¥{invoice.get('amount_including_tax_10', 0):,.0f} |")
-        if invoice.get('amount_excluding_tax_8', 0) > 0:
-            lines.append(f"| 8% | ¥{invoice.get('amount_excluding_tax_8', 0):,.0f} | "
-                        f"¥{invoice.get('amount_tax_8', 0):,.0f} | "
-                        f"¥{invoice.get('amount_including_tax_8', 0):,.0f} |")
-        if invoice.get('amount_excluding_tax_8_reduced', 0) > 0:
-            lines.append(f"| 8%（軽減） | ¥{invoice.get('amount_excluding_tax_8_reduced', 0):,.0f} | "
-                        f"¥{invoice.get('amount_tax_8_reduced', 0):,.0f} | "
-                        f"¥{invoice.get('amount_including_tax_8_reduced', 0):,.0f} |")
-        if invoice.get('amount_excluding_tax_0', 0) > 0:
-            lines.append(f"| 0% | ¥{invoice.get('amount_excluding_tax_0', 0):,.0f} | "
-                        f"¥{invoice.get('amount_tax_0', 0):,.0f} | "
-                        f"¥{invoice.get('amount_including_tax_0', 0):,.0f} |")
+        amt_ex_10 = quotation.get('amount_excluding_tax_10') or 0
+        amt_ex_8 = quotation.get('amount_excluding_tax_8') or 0
+        amt_ex_8r = quotation.get('amount_excluding_tax_8_reduced') or 0
+        amt_ex_0 = quotation.get('amount_excluding_tax_0') or 0
+        
+        if amt_ex_10 > 0:
+            lines.append(f"| 10% | ¥{amt_ex_10:,.0f} | "
+                        f"¥{(quotation.get('amount_tax_10') or 0):,.0f} | "
+                        f"¥{(quotation.get('amount_including_tax_10') or 0):,.0f} |")
+        if amt_ex_8 > 0:
+            lines.append(f"| 8% | ¥{amt_ex_8:,.0f} | "
+                        f"¥{(quotation.get('amount_tax_8') or 0):,.0f} | "
+                        f"¥{(quotation.get('amount_including_tax_8') or 0):,.0f} |")
+        if amt_ex_8r > 0:
+            lines.append(f"| 8%（軽減） | ¥{amt_ex_8r:,.0f} | "
+                        f"¥{(quotation.get('amount_tax_8_reduced') or 0):,.0f} | "
+                        f"¥{(quotation.get('amount_including_tax_8_reduced') or 0):,.0f} |")
+        if amt_ex_0 > 0:
+            lines.append(f"| 0% | ¥{amt_ex_0:,.0f} | "
+                        f"¥{(quotation.get('amount_tax_0') or 0):,.0f} | "
+                        f"¥{(quotation.get('amount_including_tax_0') or 0):,.0f} |")
         lines.append("")
     
     # 明細行
-    invoice_lines = invoice.get('lines', [])
-    if invoice_lines:
-        lines.append("### 請求明細")
+    quotation_lines = quotation.get('lines', [])
+    if quotation_lines:
+        lines.append("### 見積明細")
         lines.append("")
         lines.append("| No | 項目 | 数量 | 単価 | 税率 | 金額（税別） |")
         lines.append("|:---:|:---|---:|---:|:---:|---:|")
         
-        for i, line in enumerate(invoice_lines, 1):
+        for i, line in enumerate(quotation_lines, 1):
             if line.get('type') == 'text':
-                # テキスト行
                 lines.append(f"| {i} | {line.get('description', '')} | - | - | - | - |")
             else:
-                # 品目行
                 description = line.get('description', 'N/A')
                 qty = line.get('quantity') if line.get('quantity') is not None else 0
                 unit_price = line.get('unit_price')
                 tax_rate = line.get('tax_rate') if line.get('tax_rate') is not None else 0
                 amount = line.get('amount_excluding_tax') if line.get('amount_excluding_tax') is not None else 0
                 
-                # unit_priceの安全な変換
                 if unit_price is not None:
                     try:
                         unit_price_str = f"¥{float(unit_price):,.0f}"
@@ -623,12 +597,10 @@ def format_invoice_detail(invoice):
                 else:
                     unit_price_str = "-"
                 
-                # 軽減税率の表示
                 tax_rate_str = f"{tax_rate}%" if tax_rate else "0%"
                 if line.get('reduced_tax_rate'):
                     tax_rate_str += "（軽減）"
                 
-                # 金額の安全な変換
                 try:
                     amount_str = f"¥{float(amount):,.0f}"
                 except (ValueError, TypeError):
@@ -640,17 +612,17 @@ def format_invoice_detail(invoice):
         lines.append("")
     
     # 備考
-    if invoice.get('invoice_note'):
+    if quotation.get('quotation_note'):
         lines.append("### 備考")
         lines.append("")
-        lines.append(invoice.get('invoice_note'))
+        lines.append(quotation.get('quotation_note'))
         lines.append("")
     
     # 社内メモ
-    if invoice.get('memo'):
+    if quotation.get('memo'):
         lines.append("### 社内メモ")
         lines.append("")
-        lines.append(invoice.get('memo'))
+        lines.append(quotation.get('memo'))
         lines.append("")
     
     lines.append("---")
@@ -659,37 +631,29 @@ def format_invoice_detail(invoice):
     return "\n".join(lines)
 
 
-def format_statistics(invoices):
-    """請求書の統計情報をMarkdown形式に整形"""
+def format_statistics(quotations):
+    """見積書の統計情報をMarkdown形式に整形"""
     lines = []
     
     lines.append("### 統計情報")
     lines.append("")
     
-    if not invoices:
-        lines.append("請求書がありません。")
+    if not quotations:
+        lines.append("見積書がありません。")
         return "\n".join(lines)
     
     # 送付ステータス別集計
     sending_count = {}
     sending_amount = {}
     
-    # 入金ステータス別集計
-    payment_count = {}
-    payment_amount = {}
-    
-    for invoice in invoices:
-        sending_status = get_sending_status_text(invoice.get('sending_status'))
-        payment_status = get_payment_status_text(invoice.get('payment_status'))
-        amount = invoice.get('total_amount', 0)
+    for q in quotations:
+        sending_status = get_sending_status_text(q.get('sending_status'))
+        amount = q.get('total_amount', 0)
         
         sending_count[sending_status] = sending_count.get(sending_status, 0) + 1
         sending_amount[sending_status] = sending_amount.get(sending_status, 0) + amount
-        
-        payment_count[payment_status] = payment_count.get(payment_status, 0) + 1
-        payment_amount[payment_status] = payment_amount.get(payment_status, 0) + amount
     
-    lines.append(f"**総請求書数:** {len(invoices)}件")
+    lines.append(f"**総見積書数:** {len(quotations)}件")
     lines.append("")
     
     lines.append("#### 送付ステータス別集計")
@@ -704,19 +668,7 @@ def format_statistics(invoices):
     
     lines.append("")
     
-    lines.append("#### 入金ステータス別集計")
-    lines.append("")
-    lines.append("| ステータス | 件数 | 合計金額 |")
-    lines.append("|:---|---:|---:|")
-    
-    for status in sorted(payment_count.keys()):
-        count = payment_count[status]
-        amount = payment_amount[status]
-        lines.append(f"| {status} | {count}件 | ¥{amount:,.0f} |")
-    
-    lines.append("")
-    
-    total_amount = sum(invoice.get('total_amount', 0) for invoice in invoices)
+    total_amount = sum(q.get('total_amount', 0) for q in quotations)
     lines.append(f"**総合計金額:** ¥{total_amount:,.0f}")
     lines.append("")
     
@@ -726,18 +678,13 @@ def format_statistics(invoices):
 def main():
     """メイン処理"""
     parser = argparse.ArgumentParser(
-        description='freee請求書確認スクリプト（freee請求書API版）',
+        description='freee見積書確認スクリプト（freee請求書API版）',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用例:
-  python show_invoice_iv.py              # 通常実行
-  python show_invoice_iv.py --reauth     # 再認証して実行
-  python show_invoice_iv.py -r           # 再認証して実行（短縮形）
-
-注意:
-  このスクリプトは「freee請求書」サービスのAPIを使用します。
-  freee会計の請求書機能とは異なります。
-  freee請求書への登録が必要です: https://www.freee.co.jp/invoice/
+  python show_quotation.py              # 通常実行
+  python show_quotation.py --reauth     # 再認証して実行
+  python show_quotation.py -r           # 再認証して実行（短縮形）
         """
     )
     parser.add_argument(
@@ -753,7 +700,7 @@ def main():
     output_file = script_dir / f"{script_path.stem}.md"
     
     print("\n" + "="*60)
-    print("freee請求書確認スクリプト（freee請求書API版）")
+    print("freee見積書確認スクリプト（freee請求書API版）")
     print("="*60)
     print(f"実行時刻: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"出力ファイル: {output_file}")
@@ -777,8 +724,6 @@ def main():
         print("\n以下を選択してください:")
         print("1. 既存のトークンを使用する（通常）")
         print("2. トークンを削除して再認証する（権限追加後の初回実行時）")
-        print("\n💡 ヒント: 次回から --reauth オプションで自動的に再認証できます")
-        print("   例: python show_invoice_iv.py --reauth")
         
         choice = input("\n選択してください (1-2, Enter=1): ").strip()
         
@@ -797,14 +742,14 @@ def main():
         print("✓ 新しい認証プロセスを開始します")
     
     try:
-        api = FreeeInvoiceAPI()
+        api = FreeeQuotationAPI()
         
         companies = api.get_company_info()
         
         if not companies:
             print("\n❌ 事業所情報が取得できませんでした")
             with open(output_file, 'w', encoding='utf-8') as f:
-                f.write("# 請求書確認結果\n\n")
+                f.write("# 見積書確認結果\n\n")
                 f.write("**エラー:** 事業所情報が取得できませんでした。\n")
             return
         
@@ -823,21 +768,20 @@ def main():
         print("\n" + "="*60)
         print("確認メニュー")
         print("="*60)
-        print("1. すべての請求書を表示")
+        print("1. すべての見積書を表示")
         print("2. 送付ステータスで絞り込んで表示")
-        print("3. 入金ステータスで絞り込んで表示")
-        print("4. 期間で絞り込んで表示")
-        print("5. 最近の請求書を表示（10件）")
+        print("3. 期間で絞り込んで表示")
+        print("4. 最近の見積書を表示（10件）")
         print("="*60)
         
-        choice = input("\n選択してください (1-5): ").strip()
+        choice = input("\n選択してください (1-4): ").strip()
         
-        invoices = []
+        quotations = []
         filter_info = ""
         
         if choice == '1':
-            invoices = api.get_invoices(limit=100)
-            filter_info = "すべての請求書"
+            quotations = api.get_quotations(limit=100)
+            filter_info = "すべての見積書"
             
         elif choice == '2':
             print("\n送付ステータスを選択してください:")
@@ -852,105 +796,85 @@ def main():
             
             status = status_map.get(status_choice)
             if status:
-                invoices = api.get_invoices(limit=100, sending_status=status)
+                quotations = api.get_quotations(limit=100, sending_status=status)
                 filter_info = f"送付ステータス: {get_sending_status_text(status)}"
             else:
                 print("❌ 無効な選択です")
                 return
-        
-        elif choice == '3':
-            print("\n入金ステータスを選択してください:")
-            print("1. 入金待ち (unsettled)")
-            print("2. 入金済み (settled)")
-            
-            status_choice = input("\n選択してください (1-2): ").strip()
-            status_map = {
-                '1': 'unsettled',
-                '2': 'settled'
-            }
-            
-            status = status_map.get(status_choice)
-            if status:
-                invoices = api.get_invoices(limit=100, payment_status=status)
-                filter_info = f"入金ステータス: {get_payment_status_text(status)}"
-            else:
-                print("❌ 無効な選択です")
-                return
                 
-        elif choice == '4':
+        elif choice == '3':
             print("\n期間を指定してください:")
             start_date = input("開始日 (YYYY-MM-DD): ").strip()
             end_date = input("終了日 (YYYY-MM-DD): ").strip()
             
             if start_date and end_date:
-                invoices = api.get_invoices(limit=100, start_date=start_date, end_date=end_date)
+                quotations = api.get_quotations(limit=100, start_date=start_date, end_date=end_date)
                 filter_info = f"期間: {start_date} ～ {end_date}"
             else:
                 print("❌ 日付が正しく入力されていません")
                 return
                 
-        elif choice == '5':
-            invoices = api.get_invoices(limit=10)
-            filter_info = "最近の請求書（10件）"
+        elif choice == '4':
+            quotations = api.get_quotations(limit=10)
+            filter_info = "最近の見積書（10件）"
             
         else:
             print("❌ 無効な選択です")
             return
         
         print(f"\n" + "="*60)
-        print(f"取得結果: {len(invoices)}件の請求書")
+        print(f"取得結果: {len(quotations)}件の見積書")
         print("="*60)
         
         show_detail = False
-        if invoices and len(invoices) <= 5:
+        if quotations and len(quotations) <= 5:
             detail_choice = input("\n詳細情報も表示しますか？ (y/n): ").strip().lower()
             show_detail = (detail_choice == 'y')
         
         print(f"\n📝 結果をファイルに出力中... ({output_file})")
         
         with open(output_file, 'w', encoding='utf-8') as f:
-            f.write("# 請求書確認結果（freee請求書）\n\n")
+            f.write("# 見積書確認結果（freee請求書）\n\n")
             f.write(f"**確認日時:** {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}\n\n")
             f.write(f"**事業所:** {current_company.get('display_name') if current_company else 'N/A'}\n\n")
             f.write(f"**絞り込み条件:** {filter_info}\n\n")
             f.write(f"**使用API:** freee請求書API\n\n")
             f.write("---\n\n")
             
-            if invoices:
-                f.write(format_statistics(invoices))
+            if quotations:
+                f.write(format_statistics(quotations))
                 f.write("\n")
                 
-                f.write("## 請求書一覧\n\n")
-                f.write(format_invoice_summary_table(invoices))
+                f.write("## 見積書一覧\n\n")
+                f.write(format_quotation_summary_table(quotations))
                 f.write("\n\n")
                 
                 if show_detail:
                     f.write("## 詳細情報\n\n")
-                    for i, invoice in enumerate(invoices, 1):
-                        f.write(f"### {i}. {invoice.get('invoice_number', 'N/A')}\n\n")
+                    for i, q in enumerate(quotations, 1):
+                        f.write(f"### {i}. {q.get('quotation_number', 'N/A')}\n\n")
                         
-                        invoice_id = invoice.get('id')
-                        if invoice_id:
-                            detail = api.get_invoice_detail(invoice_id)
+                        quotation_id = q.get('id')
+                        if quotation_id:
+                            detail = api.get_quotation_detail(quotation_id)
                             if detail:
-                                f.write(format_invoice_detail(detail))
+                                f.write(format_quotation_detail(detail))
                         
-                        if i < len(invoices):
+                        if i < len(quotations):
                             f.write("\n")
                 
-                print("\n✅ 請求書の確認が完了しました！")
+                print("\n✅ 見積書の確認が完了しました！")
             else:
                 f.write("## 結果\n\n")
-                f.write("指定された条件に一致する請求書はありませんでした。\n\n")
+                f.write("指定された条件に一致する見積書はありませんでした。\n\n")
                 f.write("### 考えられる原因\n\n")
-                f.write("1. freee請求書に請求書が登録されていない\n")
+                f.write("1. freee請求書に見積書が登録されていない\n")
                 f.write("2. freee請求書APIへのアクセス権限がない\n")
                 f.write("3. freee請求書サービスへの登録が完了していない\n\n")
                 f.write("**確認方法:**\n")
                 f.write("- freee請求書: https://invoice.freee.co.jp/\n")
                 f.write("- freee請求書への登録: https://www.freee.co.jp/invoice/\n")
-                f.write("- アプリ設定: https://app.secure.freee.co.jp/developers/applications\n")
-                print("\n⚠️  該当する請求書が見つかりませんでした")
+                print("\n⚠️  該当する見積書が見つかりませんでした")
         
         print(f"\n✅ 結果を {output_file} に出力しました")
         print("\n" + "="*60)
@@ -963,7 +887,7 @@ def main():
         traceback.print_exc()
         
         with open(output_file, 'w', encoding='utf-8') as f:
-            f.write("# 請求書確認結果\n\n")
+            f.write("# 見積書確認結果\n\n")
             f.write("## ❌ エラーが発生しました\n\n")
             f.write(f"```\n{str(e)}\n```\n\n")
             f.write("### スタックトレース\n\n")

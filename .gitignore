@@ -12,6 +12,8 @@ __pycache__/
 
 # json
 freee_tokens.json
+freee_tokens_invoice.json
+freee_tokens_quotation.json
 
 # Distribution / packaging
 .Python
