@@ -608,33 +608,18 @@ def format_invoice_detail(invoice):
             else:
                 # 品目行
                 description = line.get('description', 'N/A')
-                qty = line.get('quantity') if line.get('quantity') is not None else 0
-                unit_price = line.get('unit_price')
-                tax_rate = line.get('tax_rate') if line.get('tax_rate') is not None else 0
-                amount = line.get('amount_excluding_tax') if line.get('amount_excluding_tax') is not None else 0
-                
-                # unit_priceの安全な変換
-                if unit_price is not None:
-                    try:
-                        unit_price_str = f"¥{float(unit_price):,.0f}"
-                    except (ValueError, TypeError):
-                        unit_price_str = str(unit_price)
-                else:
-                    unit_price_str = "-"
+                qty = line.get('quantity', 0)
+                unit_price = line.get('unit_price', '0')
+                tax_rate = line.get('tax_rate', 0)
+                amount = line.get('amount_excluding_tax', 0)
                 
                 # 軽減税率の表示
-                tax_rate_str = f"{tax_rate}%" if tax_rate else "0%"
+                tax_rate_str = f"{tax_rate}%"
                 if line.get('reduced_tax_rate'):
                     tax_rate_str += "（軽減）"
                 
-                # 金額の安全な変換
-                try:
-                    amount_str = f"¥{float(amount):,.0f}"
-                except (ValueError, TypeError):
-                    amount_str = "-"
-                
-                lines.append(f"| {i} | {description} | {qty} | {unit_price_str} | "
-                            f"{tax_rate_str} | {amount_str} |")
+                lines.append(f"| {i} | {description} | {qty} | ¥{float(unit_price):,.0f} | "
+                            f"{tax_rate_str} | ¥{amount:,.0f} |")
         
         lines.append("")
     
